@@ -12,9 +12,9 @@ import time
 device = torch.device("cpu")
 st.write(f"✅ Using device: {device}")
 
-# Define paths (adjust based on deployment environment)
-model_folder = "model_classifier"  # Local folder or full path
-data_path = "processed_diseases-priority"    # Local file or full path
+# Define paths (adjusted for correct file extensions and absolute paths if needed)
+model_folder = "model_classifier"  # Ensure this folder exists in the working directory
+data_path = "processed_diseases-priority.csv"  # Added .csv extension
 
 # Define the Optimized Disease Classifier (must match training script)
 class OptimizedDiseaseClassifier(nn.Module):
@@ -46,19 +46,31 @@ class OptimizedDiseaseClassifier(nn.Module):
 def load_model_and_artifacts(model_folder, input_dim=5000, num_classes=50):
     try:
         model = OptimizedDiseaseClassifier(input_dim=input_dim, num_classes=num_classes).to(device)
-        model.load_state_dict(torch.load(os.path.join(model_folder, "best_model.pth"), map_location=device))
+        model_path = os.path.join(model_folder, "best_model.pth")
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file not found at {model_path}")
+        model.load_state_dict(torch.load(model_path, map_location=device))
         model.eval()
         
-        with open(os.path.join(model_folder, "tfidf_vectorizer.pkl"), "rb") as f:
-            tfidf = pickle.load(f)
-        with open(os.path.join(model_folder, "label_encoder.pkl"), "rb") as f:
-            label_encoder = pickle.load(f)
-        faiss_index = faiss.read_index(os.path.join(model_folder, "faiss_index.bin"))
+        tfidf_path = os.path.join(model_folder, "tfidf_vectorizer.pkl")
+        label_encoder_path = os.path.join(model_folder, "label_encoder.pkl")
+        faiss_index_path = os.path.join(model_folder, "faiss_index.bin")
         
+        for path in [tfidf_path, label_encoder_path, faiss_index_path]:
+            if not os.path.exists(path):
+                raise FileNotFoundError(f"Artifact not found at {path}")
+        
+        with open(tfidf_path, "rb") as f:
+            tfidf = pickle.load(f)
+        with open(label_encoder_path, "rb") as f:
+            label_encoder = pickle.load(f)
+        faiss_index = faiss.read_index(faiss_index_path)
+        
+        if not os.path.exists(data_path):
+            raise FileNotFoundError(f"Data file not found at {data_path}")
         df = pd.read_csv(data_path)
         df["Disease"] = label_encoder.transform(df["Disease"])
         
-        # Extract common symptoms for suggestions
         all_symptoms = ','.join(df["Symptoms"]).split(',')
         symptom_list = sorted(set([s.strip().lower() for s in all_symptoms if s.strip()]))
         
@@ -162,7 +174,6 @@ def main():
                 if disease and confidence >= confidence_threshold:
                     st.success("Diagnosis complete!")
                     
-                    # Display results in expandable sections
                     with st.expander("Diagnosis Results", expanded=True):
                         col1, col2 = st.columns(2)
                         with col1:

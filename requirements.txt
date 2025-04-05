@@ -4,5 +4,5 @@ pandas>=2.2.0
 numpy>=1.26.0
 scikit-learn>=1.4.0
 faiss-cpu>=1.8.0
-pickle5>=0.0.11
+pickle>=0.0.11
 plotly>=5.18.0
